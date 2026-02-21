@@ -1,4 +1,4 @@
-faster-whisper==1.2.0
+faster-whisper==1.1.0
 websockets
 onnxruntime==1.17.0
 numba
@@ -9,7 +9,7 @@ av
 jiwer
 evaluate
 numpy<2
-openai-whisper==20250625
+openai-whisper==20240930
 tokenizers==0.20.3
 transformers[torch]
 sentencepiece
@@ -21,7 +21,3 @@ openvino-genai
 openvino-tokenizers
 optimum 
 optimum-intel
-
-fastapi
-uvicorn
-python-multipart

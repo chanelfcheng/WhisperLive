@@ -27,6 +27,7 @@ from faster_whisper.vad import (
     VadOptions,
     collect_chunks,
     get_speech_timestamps,
+    merge_segments,
 )
 
 
@@ -406,7 +407,8 @@ class BatchedInferencePipeline:
                         **vad_parameters, max_speech_duration_s=chunk_length
                     )
 
-                clip_timestamps = get_speech_timestamps(audio, vad_parameters)
+                active_segments = get_speech_timestamps(audio, vad_parameters)
+                clip_timestamps = merge_segments(active_segments, vad_parameters)
             # run the audio if it is less than 30 sec even without clip_timestamps
             elif duration < chunk_length:
                 clip_timestamps = [{"start": 0, "end": audio.shape[0]}]

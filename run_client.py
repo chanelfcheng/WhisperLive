@@ -3,6 +3,33 @@ import sys
 from whisper_live.client import TranscriptionClient
 import argparse
 
+import pyaudio
+
+def find_device_index(name_substring):
+    p = pyaudio.PyAudio()
+    target_index = None
+    print("[INFO]: Available input devices:")
+    for i in range(p.get_device_count()):
+        info = p.get_device_info_by_index(i)
+        if info['maxInputChannels'] > 0:
+            print(f"  [{i}] {info['name']}")
+            if name_substring.lower() in info['name'].lower() and target_index is None:
+                target_index = i
+    p.terminate()
+    return target_index
+
+device_index = find_device_index("reSpeaker")
+if device_index is None:
+    print("[WARN]: reSpeaker not found, using default device")
+else:
+    print(f"[INFO]: Using reSpeaker at device index {device_index}")
+
+_orig_open = pyaudio.PyAudio.open
+def _patched_open(self, **kwargs):
+    if kwargs.get('input') and 'input_device_index' not in kwargs:
+        kwargs['input_device_index'] = device_index
+    return _orig_open(self, **kwargs)
+pyaudio.PyAudio.open = _patched_open
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -47,30 +74,10 @@ if __name__ == '__main__':
                           type=str,
                           default='fr',
                           help='Target language for translation, e.g., "fr" for French.')
-    parser.add_argument('--enable_timestamps',
-                          action='store_true',
-                          help='Show transcription with timestamps')
 
     args = parser.parse_args()
 
-    # Validate audio files
-    valid_files = []
-    for file_path in args.files:
-        path = Path(file_path)
-        if path.exists() and path.is_file():
-            valid_files.append(str(path))
-        else:
-            print(f"Warning: File not found: {file_path}")
-
-    if not valid_files:
-        print("Error: No valid audio files found!")
-        sys.exit(1)
-
-    print(f"Found {len(valid_files)} audio file(s) to stream:")
-    for file_path in valid_files:
-        print(f"  - {file_path}")
-
-    for f in valid_files:
+    if not args.files:
         client = TranscriptionClient(
             args.server,
             args.port,
@@ -83,6 +90,38 @@ if __name__ == '__main__':
             mute_audio_playback=args.mute_audio_playback,      # Only used for file input, False by Default
             enable_translation=args.enable_translation,        # Enable translation of the transcription output
             target_language=args.target_language,              # Target language for translation, e.g., "fr
-            enable_timestamps=args.enable_timestamps,
         )
-        client(f)
+        client()
+    else:
+        # Validate audio files
+        valid_files = []
+        for file_path in args.files:
+            path = Path(file_path)
+            if path.exists() and path.is_file():
+                valid_files.append(str(path))
+            else:
+                print(f"Warning: File not found: {file_path}")
+
+        if not valid_files:
+            print("Error: No valid audio files found!")
+            sys.exit(1)
+
+        print(f"Found {len(valid_files)} audio file(s) to stream:")
+        for file_path in valid_files:
+            print(f"  - {file_path}")
+
+        for f in valid_files:
+            client = TranscriptionClient(
+                args.server,
+                args.port,
+                lang=args.lang,
+                translate=args.translate,
+                model=args.model,                                  # also support hf_model => `Systran/faster-whisper-small`
+                use_vad=True,
+                save_output_recording=args.save_output_recording,  # Only used for microphone input, False by Default
+                output_recording_filename=args.output_file,        # Only used for microphone input
+                mute_audio_playback=args.mute_audio_playback,      # Only used for file input, False by Default
+                enable_translation=args.enable_translation,        # Enable translation of the transcription output
+                target_language=args.target_language,              # Target language for translation, e.g., "fr
+            )
+            client(f)

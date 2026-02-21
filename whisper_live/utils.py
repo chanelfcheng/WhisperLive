@@ -11,16 +11,12 @@ def clear_screen():
     os.system("cls" if os.name == "nt" else "clear")
 
 
-def print_transcript(text, translated=False, timestamps=False):
+def print_transcript(text, translated=False):
     """Prints formatted transcript text."""
-    if timestamps:
-        for t in text:
-            print(f'[{t["start"]} -> {t["end"]}] {t["text"]}')
-    else:
-        wrapper = textwrap.TextWrapper(width=60)
-        text=" ".join(text) if translated else "".join(text)
-        for line in wrapper.wrap(text=text):
-            print(line)
+    wrapper = textwrap.TextWrapper(width=60)
+    text=" ".join(text) if translated else "".join(text)
+    for line in wrapper.wrap(text=text):
+        print(line)
 
 
 def format_time(s):

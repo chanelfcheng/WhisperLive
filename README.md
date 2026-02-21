@@ -24,8 +24,44 @@ input from microphone and pre-recorded audio files.
 - [Contact](#contact)
 - [Citations](#citations)
 
+## Using Docker
+#### docker-compose.yml for VM with NVIDIA GPU (CUDA 12.6)
+```yml
+services:
+  whisperlive:
+    build:
+      context: .
+      dockerfile: Dockerfile.gpu
+    ports:
+      - "9090:9090"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+```
+
+#### docker-compose.yml for NVIDIA Jetson Orin Nano (Jetpack 6 and CUDA 12.6)
+```yml
+services:
+  whisperlive:
+    build:
+      context: .
+      dockerfile: Dockerfile.jetson
+      network: host
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,video,utility
+    network_mode: host
+```
+
 ## Installation
-- Install PortAudio
+- Install PyAudio
 ```bash
  bash scripts/setup.sh
 ```
@@ -35,34 +71,29 @@ input from microphone and pre-recorded audio files.
  pip install whisper-live
 ```
 
-
-- Install 3.12 venv on Fedora
-
-```bash
-sudo dnf install -y python3.12 python3.12-pip
-python3.12 -m venv whisper_env
-source whisper_env/bin/activate
-```
-
-
-### OpenAI REST interface
-
-#### Server
-
-```bash
-python3 run_server.py --port 9090 --backend faster_whisper --max_clients 4 --max_connection_time 600 --enable_rest --cors-origins="http://localhost:8080,http://127.0.0.1:8080"
-```
-
-#### Client
-
-```bash
-python3 client_openai.py $AUDIO_FILE
-```
-
-
-
 ### Setting up NVIDIA/TensorRT-LLM for TensorRT backend
 - Please follow [TensorRT_whisper readme](https://github.com/collabora/WhisperLive/blob/main/TensorRT_whisper.md) for setup of [NVIDIA/TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM) and for building Whisper-TensorRT engine.
+
+### Running on a Jetson (local)
+
+#### Build CTranslate2 for Jetson's CUDA 10.2
+1. `git clone --recursive https://github.com/OpenNMT/CTranslate2.git`
+2. `cd CTranslate2`
+3. `cmake -Bbuild_folder -DWITH_MKL=OFF -DOPENMP_RUNTIME=NONE -DWITH_CUDA=ON -DWITH_CUDNN=ON`
+4. `cmake —build build_folder`
+5. `cd build_folder`
+6. `sudo make install`
+7. `cd ../python`
+8. `pip3 install -r install_requirements.txt`
+9. `python3 setup.py bdist_wheel`
+10. `pip3 install dist/*.whl`
+
+#### Create Virtual Environment Using Jeton's Packages
+1. `python3 -m venv --system-site-packages venv`
+2. `source venv/bin/activate`
+3. Verify if that the Torch version is not aimed at CPUs  
+`python3 -c "import torch; print(torch.__version__)"`
+Should return something like `2.3.0` and not `2.6.0+cpu`
 
 ## Getting Started
 The server supports 3 backends `faster_whisper`, `tensorrt` and `openvino`. If running `tensorrt` backend follow [TensorRT_whisper readme](https://github.com/collabora/WhisperLive/blob/main/TensorRT_whisper.md)
@@ -129,15 +160,7 @@ If you don't want this, set `--no_single_model`.
 
 
 ### Running the Client
-
-Use the below command to run the client:
-```bash
-python3 run_client.py --files <audio-file-name>
-```
-This will connect to the localhost server running on port 9090 by default. Use flags `--server` and `--port` to use different configurations. The above command will transcribe audio file provided with `--files` flag.
-
-
-Here are the details of client instance implemented in `run_client.py` script:
+- Initializing the client with below parameters:
   - `lang`: Language of the input audio, applicable only if using a multilingual model.
   - `translate`: If set to `True` then translate from any language to `en`.
   - `model`: Whisper model size.

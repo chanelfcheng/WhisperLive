@@ -41,7 +41,6 @@ class Client:
         target_language="fr",
         translation_callback=None,
         translation_srt_file_path="output_translated.srt",
-        enable_timestamps=False,
     ):
         """
         Initializes a Client instance for audio recording and streaming to a server.
@@ -98,7 +97,6 @@ class Client:
         self.last_translated_segment = None
         if translate:
             self.task = "translate"
-        self.enable_timestamps = enable_timestamps
 
         self.audio_bytes = None
 
@@ -177,41 +175,17 @@ class Client:
                 except Exception as e:
                     print(f"[WARN] transcription_callback raised: {e}")
                 return
-
+        
         if self.log_transcription:
-            if self.enable_timestamps:
-                original_text_with_timestamps = [
-                    {"start": seg["start"], "end": seg["end"], "text": seg["text"]}
-                    for seg in self.transcript[-4:]]
-                if self.last_segment is not None and not any(
-                    data.get("text") == self.last_segment["text"]
-                    for data in original_text_with_timestamps):
-                    original_text_with_timestamps.append({
-                        "start": self.last_segment["start"],
-                        "end": self.last_segment["end"],
-                        "text": self.last_segment["text"]
-                    })
-                utils.clear_screen()
-                utils.print_transcript(original_text_with_timestamps, timestamps=True)
-
-                if self.enable_translation:
-                    print(f"\n\nTRANSLATION to {self.target_language}:")
-                    utils.print_transcript([
-                        {"start": seg["start"], "end": seg["end"], "text": seg["text"]}
-                        for seg in self.translated_transcript[-4:]
-                    ], timestamps=True)
-
-            else:
-                original_text = [seg["text"] for seg in self.transcript[-4:]]
-                if self.last_segment is not None and self.last_segment["text"] not in original_text:
-                    original_text.append(self.last_segment["text"])
-                utils.clear_screen()
-                utils.print_transcript(original_text)
-
-                if self.enable_translation:
-                    print(f"\n\nTRANSLATION to {self.target_language}:")
-                    utils.print_transcript([seg["text"] for seg in self.translated_transcript[-4:]], translated=True)
-
+            original_text = [seg["text"] for seg in self.transcript[-4:]]
+            if self.last_segment is not None and self.last_segment["text"] not in original_text:
+                original_text.append(self.last_segment["text"])
+            
+            utils.clear_screen()
+            utils.print_transcript(original_text)
+            if self.enable_translation:
+                print(f"\n\nTRANSLATION to {self.target_language}:")
+                utils.print_transcript([seg["text"] for seg in self.translated_transcript[-4:]], translated=True)
 
     def on_message(self, ws, message):
         """
@@ -816,7 +790,6 @@ class TranscriptionClient(TranscriptionTeeClient):
         target_language="fr",
         translation_callback=None,
         translation_srt_file_path="./output_translated.srt",
-        enable_timestamps=False,
     ):
         self.client = Client(
             host,
@@ -837,7 +810,6 @@ class TranscriptionClient(TranscriptionTeeClient):
             target_language=target_language,
             translation_callback=translation_callback,
             translation_srt_file_path=translation_srt_file_path,
-            enable_timestamps=enable_timestamps,
         )
 
         if save_output_recording and not output_recording_filename.endswith(".wav"):

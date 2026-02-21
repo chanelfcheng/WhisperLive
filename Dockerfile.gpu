@@ -1,0 +1,32 @@
+FROM nvidia/cuda:12.3.2-cudnn9-runtime-ubuntu22.04
+
+RUN apt-get update && apt-get install -y \
+      python3 python3-pip git ffmpeg libglib2.0-0 libsm6 libxext6 \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN python3 -m pip install --upgrade pip
+
+# Clone WhisperLive
+WORKDIR /app
+RUN git clone --branch main --single-branch \
+      https://code.nap.av.it.pt/external-tools/WhisperLive.git .
+
+# Install matching torch + cuDNN 9 wheels
+RUN pip install \
+      torch==2.1.0+cu121 \
+      torchvision==0.16.0+cu121 \
+      torchaudio==2.1.0 \
+      --extra-index-url https://download.pytorch.org/whl/cu121
+
+RUN pip install -r requirements/server.txt
+
+# Preload Whisper model (optional)
+ARG MODEL_NAME=turbo
+RUN python3 - <<EOF
+import ctranslate2, whisper
+print("Loading Whisper model:", "${MODEL_NAME}")
+model = whisper.load_model("${MODEL_NAME}")
+print("Model loaded successfully:", model)
+EOF
+
+CMD ["python3", "run_server.py", "--port", "9090", "--backend", "faster_whisper", "--omp_num_threads", "4"]
