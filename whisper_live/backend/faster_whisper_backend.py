@@ -170,6 +170,15 @@ class ServeClientFasterWhisper(ServeClientBase):
             local_files_only=False,
         )
 
+        # Warm up the model so CUDA kernels are JIT-compiled NOW, not on the
+        # first real utterance (which would cause a 5-15 s freeze on Jetson).
+        # transcribe() returns a generator so we must consume it to trigger compute.
+        logging.info("Warming up model…")
+        import numpy as _np
+        _dummy = _np.zeros(16000, dtype=_np.float32)   # 1 s of silence
+        list(self.transcriber.transcribe(_dummy, vad_filter=False))
+        logging.info("Model warmup complete.")
+
     def set_language(self, info):
         """
         Updates the language attribute based on the detected language information.
